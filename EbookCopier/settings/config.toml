@@ -1,0 +1,46 @@
+# Main application settings
+[settings]
+picture_format = [
+    "PNG",
+]
+websites = [
+    "Libby",
+    "Hoopla",
+    "Fread",
+]
+max_images = 50
+max_memory_mb = 200
+
+[logging]
+info = true
+debug = true
+
+[Libby.1."One Page"]
+x1 = 454
+y1 = 0
+x2 = 1145
+y2 = 899
+
+[Libby.1."Two Pages"]
+x1 = 300
+y1 = 300
+x2 = 300
+y2 = 300
+
+[Libby.2."One Page"]
+x1 = 2256
+y1 = 71
+x2 = 2948
+y2 = 1049
+
+[Hoopla.2."One Page"]
+x1 = 1766
+y1 = 38
+x2 = 3429
+y2 = 1045
+
+[Hoopla.1."One Page"]
+x1 = 33
+y1 = 48
+x2 = 1596
+y2 = 883
