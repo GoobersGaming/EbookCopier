@@ -6,7 +6,7 @@ from PIL import ImageGrab
 from threading import Thread, Event
 from ui import popup_windows
 from utils import logs
-from utils.browser import activate_edge
+from utils.browser import activate_edge, enter_fullscreen_if_needed, is_edge_fullscreen
 from utils import image_manipulation, pdf_maker
 
 
@@ -24,18 +24,12 @@ cancel_event = Event()
 HOOPLA = 20
 
 
-
-# def move_mouse():
-#     width, height = pyautogui.size()
-#     current_x, current_y = pyautogui.position()
-#     if (current_x, current_y) != (width,height):
-#         pyautogui.moveTo(width,height)
-#         logs.LOGGER.debug(f"Mouse moved to {width, height}")
-
 def move_mouse():
+    cur_x, cur_y = pyautogui.position()
     width, height = pyautogui.size()
-    pyautogui.moveTo(width // 2, height)  # Center-bottom
-    logs.LOGGER.debug("Mouse moved to bottom center")
+    if (cur_x, cur_y) != (width // 2, height):
+        pyautogui.moveTo(width // 2, height)  # Center-bottom
+        logs.LOGGER.debug("Mouse moved to bottom center")
 
 def keyboard_listener():
     """Background Thread that sets pause event when ESC key is pressed"""
@@ -58,16 +52,28 @@ def handle_pause_request(listener_thread, site):
     """User initiated pause, ask user if they wish to stop"""
     if pause_event.is_set():
             logs.LOGGER.info("User Paused")
-            if popup_windows.ask_user_stop():
+            #response = popup_windows.ask_user_stop()
+            #response = popup_windows.ask_yes_no("Cancel Run", "Do You Wish To Cancel Run?")
+            response = popup_windows.ask_yes_no("Cancel Run", "Do You Wish To Cancel Run?", btn_focus="No")
+            if response: # User Wants To Cancel Run
                 cancel_event.set()
                 listener_thread.join(timeout=1) # Wait for clean exit
                 logs.LOGGER.info("User paused and cancelled run.")
+                pause_event.clear()
                 return True
-            activate_edge()
-            if site == "Hoopla":
-                time.sleep(HOOPLA)
-            logs.LOGGER.info("User Resumed")
-            pause_event.clear()
+            elif not response: # User Resumes Run
+                logs.LOGGER.info("User Resumed")
+                #activate_edge()
+                activate_edge()
+                if not is_edge_fullscreen:
+                    enter_fullscreen_if_needed()
+                pause_event.clear()
+                if site == "Hoopla":
+                    time.sleep(HOOPLA)
+                move_mouse()
+                return False
+    else:
+        return False
 
 def get_memory_usage(image_list):
     logs.LOGGER.debug(f"Memory usage of screenshot_batch MB: {sum(sys.getsizeof(img.tobytes()) for img in image_list) / (1024 * 1024)}")
@@ -96,11 +102,11 @@ def capture_ebook(timer, total_pages, capture_area, max_img, max_mem, selected_s
                 return "cancelled"
             elif not screenshot:
                 # No screenshot, so we move to next page
-                navigate_to_next_page()
+                navigate_to_next_page(selected_site)
                 continue
             page_process = processor.process_page(screenshot, selected_site)
             if page_process is False:
-                navigate_to_next_page()
+                navigate_to_next_page(selected_site)
                 continue
             elif page_process == "End":
                 logs.LOGGER.info("User declared end of book")
@@ -108,7 +114,7 @@ def capture_ebook(timer, total_pages, capture_area, max_img, max_mem, selected_s
             if not processor.save_image(screenshot):
                 logs.LOGGER.error("Unable To Save Screenshot")
                 return "cancelled"
-            navigate_to_next_page()
+            navigate_to_next_page(selected_site)
         return True
     finally:
         """Clean up listener thread, and add any remaning images in batch to pdf"""
@@ -238,10 +244,12 @@ def pause_check(total_wait_time, listener, site, interval=0.1):
             return True
     return False
 
-
-
-def navigate_to_next_page():
+def navigate_to_next_page(site):
     activate_edge()
+    if not is_edge_fullscreen():
+        enter_fullscreen_if_needed()
+        if site == "Hoopla":
+            time.sleep(HOOPLA)
     move_mouse()
     logs.LOGGER.info("Navigate to next page")
     keyboard.press_and_release("right")

@@ -4,9 +4,111 @@ from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
 from utils import logs
 from ui.styles import configure_styles
+import win32gui
+import win32con
 
 """Popup windws for the main GUI App"""
 # TODO: Should I assign these all to main parent window?
+
+
+def custom_ask(title, message, buttons, help_items=None):
+    """Show dialog with custom buttons and optional help
+    
+    Args:
+        buttons: Dictionary of {"Button Text": return_value}
+        help_items: List of help items for NavigationPopup (optional)
+    Returns:
+        The return_value of clicked button
+    """
+    winsound.MessageBeep(winsound.MB_ICONHAND)
+    if not tk._default_root:
+        root = tk.Tk()
+        root.withdraw()
+    dialog = ThreeButtonDialog(tk._default_root, title, message, buttons, help_items)
+    return dialog.result
+
+
+def book_finished_popup(title, message):
+        messagebox.showinfo(title, message)
+
+def ask_user_eob():
+    winsound.MessageBeep(winsound.MB_ICONHAND)
+    """Ask User If end of book has been reached"""
+    #root = tk.Tk()
+    root = tk.Toplevel()
+    root.attributes('-topmost', True)
+    root.withdraw()  # Hide the root window
+    response = messagebox.askyesno("End Of Book?","Duplicate Image Detected, Have We Reached The End Of the Book?")
+    logs.LOGGER.info(f"End of book response: {response}")
+    root.destroy()
+    return response
+
+def ask_yes_no(title, message, true_button="Yes", false_button="No", btn_focus=None):
+    winsound.MessageBeep(winsound.MB_ICONHAND)
+    root = tk.Toplevel()
+    root.title(title)
+    root.resizable(False, False)
+
+    root.attributes('-toolwindow', True)
+    root.attributes("-topmost", True)
+
+    style = ttk.Style(root)
+    style.theme_use("clam")
+    configure_styles(root)
+
+    container = ttk.Frame(root, style="Container.TFrame")
+    container.pack(padx=10, pady=10)
+
+    lbl_message = ttk.Label(
+            container,
+            text=message,
+            style="Title.TLabel",
+            wraplength=300
+    )
+    lbl_message.pack(padx=20, pady=10)
+
+    button_frame = ttk.Frame(container)
+    button_frame.pack(pady=(0, 10))
+
+    result = False
+
+    def set_result(value):
+        nonlocal result
+        result = value
+        root.grab_release()
+        root.withdraw()
+        root.update_idletasks()
+        root.after(50, root.destroy)
+    
+    btn_true = ttk.Button(button_frame, text=true_button, style="TButton", command=lambda: set_result(True))
+    btn_true.pack(side=tk.LEFT, padx=10)
+
+    btn_false = ttk.Button(button_frame, text=false_button, style="TButton", command=lambda: set_result(False))
+    btn_false.pack(side=tk.LEFT, padx=10)
+
+    # Make it modal(blocks input to other windows)
+    root.grab_set()
+
+    # Center Dialog
+    root.update_idletasks()
+    width = root.winfo_reqwidth()
+    height = root.winfo_reqheight()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f"+{x}+{y}")
+    if btn_focus == true_button:
+        btn_true.focus_set()
+    elif btn_focus == false_button:
+        btn_false.focus_set()
+    root.wait_window()
+    return result
+    
+
+
+def error_popup(title, message):
+    winsound.MessageBeep(winsound.MB_ICONHAND)
+    logs.LOGGER.info(f"Error_popup, Title: {title}, Message: {message}")
+    messagebox.showerror(title, message)
 
 class NavigationPopup:
     def __init__(self, root, items):
@@ -166,46 +268,6 @@ class ThreeButtonDialog:
         self.result = value
         self.dialog.destroy()
 
-def custom_ask(title, message, buttons, help_items=None):
-    """Show dialog with custom buttons and optional help
-    
-    Args:
-        buttons: Dictionary of {"Button Text": return_value}
-        help_items: List of help items for NavigationPopup (optional)
-    Returns:
-        The return_value of clicked button
-    """
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    if not tk._default_root:
-        root = tk.Tk()
-        root.withdraw()
-    dialog = ThreeButtonDialog(tk._default_root, title, message, buttons, help_items)
-    return dialog.result
-
-
-def book_finished_popup(title, message):
-        messagebox.showinfo(title, message)
-
-def ask_user_eob():
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    """Ask User If end of book has been reached"""
-    #root = tk.Tk()
-    root = tk.Toplevel()
-    root.attributes('-topmost', True)
-    root.withdraw()  # Hide the root window
-    response = messagebox.askyesno("End Of Book?","Duplicate Image Detected, Have We Reached The End Of the Book?")
-    logs.LOGGER.info(f"End of book response: {response}")
-    root.destroy()
-    return response
-
-def ask_user_delete():
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    root = tk.Tk()
-    root.withdraw()
-    response = messagebox.askyesno("Delete Book", "Ebook Copier Was Cancelled\nDo You Wish To Keep The Unfinished PDF?")
-    logs.LOGGER.info(f"Delete PDF response: {response}")
-    return response
-
 def ask_user_keep_blank(blank_image):
     """
     Display a window showing two images side by side with options to Keep or Skip.
@@ -294,7 +356,10 @@ def ask_user_keep_blank(blank_image):
     def set_result(value):
         nonlocal result
         result = value
-        root.destroy()
+        root.grab_release()
+        root.withdraw()
+        root.update_idletasks()
+        root.after(50, root.destroy)
     
     # Keep button (returns True)
     keep_button = ttk.Button(
@@ -437,7 +502,11 @@ def ask_user_keep_dupe(prev_image, curr_image):
     def set_response(value):
         nonlocal response
         response = value
-        root.destroy()
+        root.grab_release()
+        root.withdraw()
+        root.update_idletasks()
+        root.after(50, root.destroy)
+
     
     # Keep button (returns True)
     keep_button = ttk.Button(
@@ -480,23 +549,6 @@ def ask_user_keep_dupe(prev_image, curr_image):
     root.wait_window()
     logs.LOGGER.info(f"Keep duplicate response: {response}")
     return response
-
-def ask_user_stop():
-    """Ask User If they wish to stop copying the book"""
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    # root = tk.Tk()
-    # root.attributes('-topmost', True)
-    root = tk.Toplevel()
-    root.attributes('-topmost', True)
-    root.withdraw()
-    response = messagebox.askyesno("Paused", "Would you like to stop copying the book? \n All progress will be lost!")
-    logs.LOGGER.info(f"ask_user_to_stop, Response: {response}")
-    return response
-
-def error_popup(title, message):
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    logs.LOGGER.info(f"Error_popup, Title: {title}, Message: {message}")
-    messagebox.showerror(title, message)
 
 def countdown(timer_label, count, countdown_window):
     if count >= 0:

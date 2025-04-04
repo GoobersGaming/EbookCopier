@@ -7,6 +7,7 @@ from ui.help import cont_message
 from ui.main_ui import BookCopierApp
 from ui.rectangle_drawer import RectangleEditor
 from utils.take_screenshots import capture_ebook
+import tkinter as tk
 
 
 """Main Python Module For Running The Script"""
@@ -27,6 +28,7 @@ def start_button_action(book_param, main_window, settings):
             return
         if not _process_capture_box(settings, book_param, main_window):
             return
+        main_window.withdraw()
         finished_book = _record_book(settings, book_param)
         if finished_book == "cancelled":
             _book_cancelled(book_param.file_path)
@@ -37,14 +39,19 @@ def start_button_action(book_param, main_window, settings):
         logs.LOGGER.info("App reset, book_params cleared")
     
     finally:
+        main_window.deiconify() 
         popup_windows.restore_window(overlay)
 
 def _book_cancelled(file_path):
     logs.LOGGER.info("Ebook Copier Cancelled")
-    if not popup_windows.ask_user_delete():
-        os.remove(file_path)
-        popup_windows.messagebox.showinfo("PDF Deleted", f"{file_path}\nWas Removed")
-        logs.LOGGER.info("PDF Deleted")
+    if popup_windows.ask_yes_no("Delete PDF", "Do You Want To Delete Unfinished Book?", "Delete", "Keep", btn_focus="Delete"):
+        try:
+            os.remove(file_path)
+        except FileNotFoundError:
+            pass
+        finally:
+            popup_windows.messagebox.showinfo("PDF Deleted", f"{file_path}\nWas Removed")
+            logs.LOGGER.info("PDF Deleted")
 
 def _book_completed(file_path):
     popup_windows.book_finished_popup("Finished", f"Book Saved To: {file_path}")
