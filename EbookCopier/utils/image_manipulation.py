@@ -49,18 +49,26 @@ def convert_to_pil(image):
         logs.LOGGER.error(f"convert_to_pill, Unsupported image format")
         raise ValueError("Unsupported image format")
 
-def compare_images(current_image, previous_image, threshold=0.95):
+# def compare_images(current_image, previous_image, threshold=0.95):
+#     logs.LOGGER.info("Comparing images")
+#     #convert imaeg to numpy arrays
+#     current_image_np = np.array(current_image)
+#     previous_image_np = np.array(previous_image)
+
+#     #convert to grayscale
+#     current_image_gray = cv2.cvtColor(current_image_np, cv2.COLOR_RGB2GRAY)
+#     previous_image_gray = cv2.cvtColor(previous_image_np, cv2.COLOR_RGB2GRAY)
+
+#     #compute ssim
+#     score, _ = ssim(current_image_gray, previous_image_gray, full=True)
+#     logs.LOGGER.info(f"Image Duplicate: {score >=threshold}")
+#     logs.LOGGER.debug(f"compare_images score: {score}, threshold: {threshold}, result {score >= threshold}")
+#     return score >= threshold #Returns True if similarity is above threshold
+
+def compare_images(current_image, previous_image):
     logs.LOGGER.info("Comparing images")
-    #convert imaeg to numpy arrays
-    current_image_np = np.array(current_image)
-    previous_image_np = np.array(previous_image)
-
-    #convert to grayscale
-    current_image_gray = cv2.cvtColor(current_image_np, cv2.COLOR_RGB2GRAY)
-    previous_image_gray = cv2.cvtColor(previous_image_np, cv2.COLOR_RGB2GRAY)
-
-    #compute ssim
-    score, _ = ssim(current_image_gray, previous_image_gray, full=True)
-    logs.LOGGER.info(f"Image Duplicate: {score >=threshold}")
-    logs.LOGGER.debug(f"compare_images score: {score}, threshold: {threshold}, result {score >= threshold}")
-    return score >= threshold #Returns True if similarity is above threshold
+    current_np = np.array(current_image)
+    previous_np = np.array(previous_image)
+    result = np.array_equal(current_np, previous_np)
+    logs.LOGGER.info(f"Compared images result: {result}")
+    return result
