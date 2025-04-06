@@ -200,5 +200,9 @@ def _save_bounding_box(settings, book):
         logs.LOGGER.debug(f"Entry added to Config.toml, selected_site: {book.selected_site}, page_view: {book.page_view}, capture_box: {book.capture_box}")
 
 if __name__ == "__main__":
+    update_path = Path("update.bat").resolve()
+    if update_path.exists():
+        new_location = update_path.parent.parent / update_path.name
+        update_path.replace(new_location)
     app = BookCopierApp(start_command=start_button_action)
     app.run()

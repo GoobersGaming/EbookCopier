@@ -2,6 +2,7 @@ import tomllib
 import tomli_w
 from pathlib import Path
 from utils import logs
+import logging
 
 """Book/User Settings"""
 
@@ -44,16 +45,24 @@ class UserSettings:
     def __init__(self):
         #We Set Default Values, and Then Look for a config.toml
         self.settings_path = Path("settings/config.toml")
-        self.info = None
-        self.debug = None
-        self.picture_format = ""
-        self.websites = []
-        self.max_images = int()
-        self.max_memory_mb = int()
+        self.info = False
+        self.debug = False
+        self.picture_format = "PNG"
+        self.websites = ["Libby", "Hoopla"]
+        self.max_images = int(50)
+        self.max_memory_mb = int(50)
         self.saved_capture_boxes = {}
+        self.__check_logger()
         self.__populate_settings()
-        #self.x = Path(self.settings_path)
-        
+
+    def __check_logger(self):
+        if logs.LOGGER is None:
+            log_level = []
+            if self.info:
+                log_level.append(logging.INFO)
+            if self.debug:
+                log_level.append(logging.DEBUG)
+            logs.LOGGER = logs.AppLogger(ignore_levels=log_level).get_logger()
 
     def __safe_get(self, config, *keys, default=None):
         for key in keys:
@@ -64,14 +73,19 @@ class UserSettings:
         return config
         
     def __read_user_settings(self):
-        try:
-            with open(self.settings_path.resolve(), "rb") as f:
-                return tomllib.load(f)
-        except FileNotFoundError:
-            # config.toml not found revert to default
+        output_path = self.settings_path.resolve()
+
+        if not output_path.exists():
+            logs.LOGGER.info("Config.toml not found")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.touch()
+
+            # Initialize with defualt content
             self.save_user_settings()
-            logs.LOGGER.info("Config.toml not found, creating new config.toml")
-            return {}
+            logs.LOGGER.info("new config.toml created")
+        
+        with open(output_path, "rb") as f:
+            return tomllib.load(f)
     
     def __populate_settings(self):
         config = self.__read_user_settings()
@@ -115,6 +129,7 @@ class UserSettings:
             **self.saved_capture_boxes }   
         
         output_path = self.settings_path.resolve()
+            
         with open(output_path, "wb") as f:
             f.write(b"# Main application settings\n")
             tomli_w.dump(config, f)
