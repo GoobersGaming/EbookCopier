@@ -113,19 +113,40 @@ def capture_ebook(timer, total_pages, capture_area, max_img, max_mem, selected_s
                 logs.LOGGER.error("Unable To Save Screenshot")
                 return "cancelled"
             navigate_to_next_page(selected_site)
+        end = False
+        #Since Hoopla Page Count Is Not Accurate, We Run Pass total_pages till duplicate and then end the book.
+        while end is False:
+            if handle_pause_request(listener, selected_site):
+                return "cancelled"
+            screenshot = capture_and_validate_page(timer, listener, capture_config, selected_site)
+            if screenshot == "cancelled":
+                return "cancelled"
+            elif not screenshot: # No Screenshot Move To Next Page
+                navigate_to_next_page(selected_site)
+                continue
+            # Set eob, to skip dupe popup, and just return bool if its a duplicate
+            page_process = processor.process_page(screenshot, selected_site, eob=True)
+            if page_process:    # Its a dupe we end
+                end = True
+                break
+            if not processor.save_image(screenshot): # Save image, return results
+                logs.LOGGER.error("Unable To Save Screenshot")
+                return "cancelled"
+            navigate_to_next_page(selected_site)
         return True
     finally:
+        # Since Hoopla Pages In Book is Not Correct, We Will Run Till We Hit A Duplicate.
         """Clean up listener thread, and add any remaning images in batch to pdf"""
-        #cancel_event.set() #Exit Thread, Should Be Needed, Believe dameon=True should terminate it.
         cancel_event.clear()
         pause_event.clear()
         listener.join(timeout=1) # Wait for clean exit
         # Take Edge Out Of Full Screen
         activate_edge()
         keyboard.press_and_release("f11")
+
         pdf_maker.add_image_to_pdf(processor.batch, processor.output_pdf)
         processor.batch.clear() # Not needed
-        #cleanup(listener, processor)
+
 
 #Helper Classes/functions
 class CaptureConfig():
@@ -152,14 +173,16 @@ class PageProcessor:
         self.batch = []
         self.previous_image = None
 
-    def process_page(self, screenshot, site):
+    def process_page(self, screenshot, site, eob=False):
         """Process a captured page"""
         #No Previous Image to Check Against
         if not self.previous_image:
             logs.LOGGER.info("No previous image to compare to")
             return True
         # Check Against Previous Image
-        if self._is_duplicate(screenshot):
+        if eob:
+            return self._is_duplicate(screenshot)
+        elif self._is_duplicate(screenshot):
             response = self._handle_duplicate(screenshot)
             if site == "Hoopla":
                 time.sleep(HOOPLA)
@@ -207,8 +230,12 @@ def capture_and_validate_page(timer, listener, capture_config, site):
                 return "cancelled"
             #time.sleep(timer)
             screenshot = take_screenshot(capture_config)
+            if site == "Hoopla":
+                blank = image_manipulation.is_blank(screenshot, edge_threshold=0.00)
+            else:
+                blank = image_manipulation.is_blank(screenshot)
 
-            if not image_manipulation.is_blank(screenshot): # If False Image is not blank so we return
+            if not blank: # If False Image is not blank so we return
                 logs.LOGGER.info("Image is not blank")
                 return screenshot
             
