@@ -11,14 +11,14 @@ from utils import image_manipulation, pdf_maker
 
 
 """Logic For Copying The Book"""
-"""TODO:Add A Popup for Try AGain, Explaining To User How To Fix A Page Thats Not Loaded.
-        Better Solution For Hoopla Reloading When Losing Focus
-        Custom Thresholds Per Site
-        Collect Blank Data Per Site
-        Move Mouse Based On Display
-        Move Mouse Based On Capture Area
-        Ask User If They Wish To Delete Book On Cancel
-        Move capture and validate into PageProcessor"""
+#TODO:  # Better Solution For Hoopla Reloading When Losing Focus
+        # Custom Thresholds Per Site
+        # Collect Blank Data Per Site
+        # Move Mouse Based On Display
+        # Move Mouse Based On Capture Area
+        # Move capture and validate into PageProcessor
+        # Remove These Global Vars
+        
 pause_event = Event()
 cancel_event = Event()
 HOOPLA = 20
@@ -52,8 +52,6 @@ def handle_pause_request(listener_thread, site):
     """User initiated pause, ask user if they wish to stop"""
     if pause_event.is_set():
             logs.LOGGER.info("User Paused")
-            #response = popup_windows.ask_user_stop()
-            #response = popup_windows.ask_yes_no("Cancel Run", "Do You Wish To Cancel Run?")
             response = popup_windows.ask_yes_no("Cancel Run", "Do You Wish To Cancel Run?", btn_focus="No")
             if response: # User Wants To Cancel Run
                 cancel_event.set()

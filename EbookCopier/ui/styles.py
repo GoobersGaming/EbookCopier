@@ -10,32 +10,34 @@ def configure_styles(root):
     style.theme_use('clam')
 
     # Main windw background
-    root.configure(bg="#f0f0f0")
+    root.configure(bg="#828fbb")
     
     # Frame Styles
     style.configure("Container.TFrame",
-                    background="#ffffff",
+                    background="#828fbb",
                     borderwidth=1,
-                    relief="solid",
                     bordercolor="#e0e0e0",
                     padding=10)
     # Label styling
     style.configure('TLabel', 
-                    font=('Segoe UI', 10),
+                    font=('Verdana', 10),
                     padding=5)
     
     style.configure("Title.TLabel",
-                    font=('Segoe UI', 12, 'bold'),
-                    foreground='#333333')
+                    font=('Verdana', 12, 'bold'),
+                    foreground='black',
+                    background = "#828fbb")
     
     # Button styling
     style.configure('TButton',
-                    font=('Segoe UI', 10, 'bold'),
-                    padding=6,
+                    font=('Verdana', 10, 'bold'),
+                    padding=10,
                     background='#4a6baf',
                     foreground='white',
-                    borderwidth=1)
-    
+                    borderwidth=4,
+                    bordercolor ="#2a3a56",
+                    relief="raised")
+
     style.map('TButton',
             background=[('active', '#3a5a9f')],
             foreground=[("active", "white")])
@@ -48,14 +50,14 @@ def configure_styles(root):
     
     # Entry styles
     style.configure('TEntry',
-                  font=('Segoe UI', 10),
+                  font=('Verdana', 10),
                   padding=5,
                   bordercolor='#d9d9d9',
                   lightcolor='#d9d9d9',
                   darkcolor='#d9d9d9')
     
     style.configure('TCombobox',
-                  font=('Segoe UI', 10),
+                  font=('Verdana', 10),
                   arrowsize=22,
                   fieldbackground="#738cd6",
                   background="#3a5a9f",
@@ -86,9 +88,25 @@ def configure_styles(root):
         ]
     )
     
-    # Special styles
-    style.configure('Image.TLabel',
-                  background='#ffffff',
-                  borderwidth=1,
-                  relief='solid',
-                  bordercolor='#d9d9d9')
+    # Special styles 
+    style.configure("Dupe.TFrame", background="#828fbb")
+
+    style.configure("Dupe.TLabelframe",
+                    background="#828fbb",
+                    bordercolor="#4a6baf",
+                    foreground ="#70facb",
+                    relief="flat",
+                    borderwidth=0)
+    
+    style.configure("Dupe.TLabelframe.Label",
+                    font=('Verdana',12, "bold", "underline"),
+                    foreground="black",
+                    background = "#828fbb")
+    
+    style.configure('Hel.TLabel', 
+                    font=('Verdana', 12),
+                    foreground="black",
+                    background="#828fbb",
+                    padding=5)
+    
+    

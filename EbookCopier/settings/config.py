@@ -23,6 +23,22 @@ class Book:
         self.page_view = None
         self.capture_box = None
         self.monitor_display = None
+    
+    def validate(self):
+        if not self.file_path:
+            raise ValueError("empty_file_path")
+        path = Path(self.file_path)
+        if not path.parent.exists():
+            raise ValueError(f"invalid_directory")
+        if not str(self.timer).isdigit():
+            raise ValueError("invalid_timer")
+        if not str(self.book_length).isdigit():
+            raise ValueError("invalid_length")
+        if not self.selected_site:
+            raise ValueError("no_site_selected")
+        if not self.page_view:
+            raise ValueError("invalid_page_view")
+        return True
 
 class UserSettings:
     def __init__(self):

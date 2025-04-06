@@ -1,24 +1,76 @@
 import tkinter as tk
 import winsound
-from tkinter import messagebox, ttk
+from tkinter import ttk
 from PIL import Image, ImageTk
 from utils import logs
 from ui.styles import configure_styles
-import win32gui
-import win32con
+
 
 """Popup windws for the main GUI App"""
-# TODO: Should I assign these all to main parent window?
+#TODO:  #ask_user_keep_Dupe/Blank Can Be Combined(Class?)
+        #Look For A True Way To Not Steal Window Focus With Popups.
 
+def create_root(win_attr = "default", resize = (False, False), theme = "clam", toplevel = True):
+    """ Creates Root Window With Attributes And Style.
+    Args:
+        win_attr (str | list[tuple[str, bool]]):
+            - `"default"`: Enables `-toolwindow` and `-topmost=True`.
+            - `[(attr, value), ...]`: Sets custom attributes.
+            Example: `[("-alpha", 0.9), ("-disabled", False)]`.
+        resize (tuple[bool, bool], optional): Sets windows resize options for X and Y
+        theme (str, optional): Sets window theme.
+        toplevel (bool, optional): Sets window to tk.Toplevel
+    """
+    if toplevel:
+        root = tk.Toplevel()
+    else:
+        root = tk.Tk()
+    root.resizable(resize[0], resize[1])
+    if win_attr == "default":
+        root.attributes('-toolwindow', True)
+        root.attributes("-topmost", True)
+    elif isinstance(win_attr, list):
+        for item in win_attr:
+            try:
+                if len(item) == 2:
+                    root.attributes(item[0], item[1])
+                else:
+                    root.attributes(item[0], True)
+            except Exception as e:
+                logs.LOGGER.error(f"Failed to set attriBute {item}: {e}")
+
+    style = ttk.Style(root)
+    style.theme_use(theme)
+    configure_styles(root)
+    return root
+
+def set_root_geometry(root):
+    """Centers Customs Messageboxes"""
+    root.update_idletasks()
+    width = root.winfo_reqwidth()
+    height = root.winfo_reqheight()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f"+{x}+{y}")
+
+def set_response(root, response_var, value):
+    """Handles Popup Reponses"""
+    if response_var is not None:
+        response_var[0] = value
+    root.grab_release()
+    root.withdraw()
+    root.after(50, root.destroy)
 
 def custom_ask(title, message, buttons, help_items=None):
     """Show dialog with custom buttons and optional help
     
     Args:
-        buttons: Dictionary of {"Button Text": return_value}
-        help_items: List of help items for NavigationPopup (optional)
+        title (str): Window Title
+        message (str): Main window text
+        buttons (dict{str:, bool | str}]): Sets Button Name, And Buttons Return Value
+        help_items (list): List of help items for NavigationPopup (optional)
     Returns:
-        The return_value of clicked button
+        response
     """
     winsound.MessageBeep(winsound.MB_ICONHAND)
     if not tk._default_root:
@@ -27,34 +79,20 @@ def custom_ask(title, message, buttons, help_items=None):
     dialog = ThreeButtonDialog(tk._default_root, title, message, buttons, help_items)
     return dialog.result
 
-
-def book_finished_popup(title, message):
-        messagebox.showinfo(title, message)
-
-def ask_user_eob():
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    """Ask User If end of book has been reached"""
-    #root = tk.Tk()
-    root = tk.Toplevel()
-    root.attributes('-topmost', True)
-    root.withdraw()  # Hide the root window
-    response = messagebox.askyesno("End Of Book?","Duplicate Image Detected, Have We Reached The End Of the Book?")
-    logs.LOGGER.info(f"End of book response: {response}")
-    root.destroy()
-    return response
-
-def ask_yes_no(title, message, true_button="Yes", false_button="No", btn_focus=None):
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    root = tk.Toplevel()
+def message_box(title, message, button="OK", btn_focus=False):
+    """Custom Message Box With One Button
+    Args:
+        title (str): Window Title
+        message (str): Main window text
+        buttons (str): Sets Button Text
+        btn_focus (bool): set button focus
+    Returns:
+        response
+    """
+    root = create_root()
     root.title(title)
-    root.resizable(False, False)
 
-    root.attributes('-toolwindow', True)
-    root.attributes("-topmost", True)
-
-    style = ttk.Style(root)
-    style.theme_use("clam")
-    configure_styles(root)
+    response = [False]
 
     container = ttk.Frame(root, style="Container.TFrame")
     container.pack(padx=10, pady=10)
@@ -62,54 +100,84 @@ def ask_yes_no(title, message, true_button="Yes", false_button="No", btn_focus=N
     lbl_message = ttk.Label(
             container,
             text=message,
-            style="Title.TLabel",
-            wraplength=300
+            style="Hel.TLabel",
+            wraplength=400
     )
     lbl_message.pack(padx=20, pady=10)
 
-    button_frame = ttk.Frame(container)
-    button_frame.pack(pady=(0, 10))
-
-    result = False
-
-    def set_result(value):
-        nonlocal result
-        result = value
-        root.grab_release()
-        root.withdraw()
-        root.update_idletasks()
-        root.after(50, root.destroy)
+    button_frame = ttk.Frame(container, style="Container.TFrame")
+    button_frame.pack(padx= 0, pady=(0, 10))
     
-    btn_true = ttk.Button(button_frame, text=true_button, style="TButton", command=lambda: set_result(True))
+    btn_true = ttk.Button(button_frame, text=button, style="TButton", command=lambda: set_response(root, response, True))
     btn_true.pack(side=tk.LEFT, padx=10)
 
-    btn_false = ttk.Button(button_frame, text=false_button, style="TButton", command=lambda: set_result(False))
+    # Make it modal(blocks input to other windows)
+    root.grab_set()
+
+    # Center Dialog
+    set_root_geometry(root)
+
+    if btn_focus == True:
+        btn_true.focus_set()
+    elif btn_focus == False:
+        btn_true.focus_set()
+    root.wait_window()
+    logs.LOGGER.info(f"Messagebox: {title}, response: {response[0]}")
+    return response[0]
+
+def ask_yes_no(title, message, true_button="Yes", false_button="No", btn_focus=None):
+    """Show dialog with true | false response
+    
+    Args:
+        title (str): Window Title
+        message (str): Main window text
+        true_button (str, optional): Set button text for True response
+        false_button (str, optional): Set button text for False response
+        btn_focus (str, optional): Set focus on which button
+            - if equals `true_button` value, focuses the true button
+            - if equals `false_button` value, focuses the false button
+    Returns:
+        response (bool) : Returns bool of button clicked
+    """
+    root = create_root()
+    root.title(title)
+
+    response = [False]
+
+    container = ttk.Frame(root, style="Container.TFrame")
+    container.pack(padx=10, pady=10)
+
+    lbl_message = ttk.Label(
+            container,
+            text=message,
+            style="Hel.TLabel",
+            wraplength=400
+    )
+    lbl_message.pack(padx=20, pady=10)
+
+    button_frame = ttk.Frame(container, style="Container.TFrame")
+    button_frame.pack(padx= 0, pady=(0, 10))
+    
+    btn_true = ttk.Button(button_frame, text=true_button, style="TButton", command=lambda: set_response(root, response, True))
+    btn_true.pack(side=tk.LEFT, padx=10)
+
+    btn_false = ttk.Button(button_frame, text=false_button, style="TButton", command=lambda: set_response(root, response, False))
     btn_false.pack(side=tk.LEFT, padx=10)
 
     # Make it modal(blocks input to other windows)
     root.grab_set()
 
     # Center Dialog
-    root.update_idletasks()
-    width = root.winfo_reqwidth()
-    height = root.winfo_reqheight()
-    x = (root.winfo_screenwidth() // 2) - (width // 2)
-    y = (root.winfo_screenheight() // 2) - (height // 2)
-    root.geometry(f"+{x}+{y}")
+    set_root_geometry(root)
+
     if btn_focus == true_button:
         btn_true.focus_set()
     elif btn_focus == false_button:
         btn_false.focus_set()
     root.wait_window()
-    return result
+    logs.LOGGER.info(f"Askyn: {title}, response: {response[0]}")
+    return response[0]
     
-
-
-def error_popup(title, message):
-    winsound.MessageBeep(winsound.MB_ICONHAND)
-    logs.LOGGER.info(f"Error_popup, Title: {title}, Message: {message}")
-    messagebox.showerror(title, message)
-
 class NavigationPopup:
     def __init__(self, root, items):
         self.root = root
@@ -119,23 +187,28 @@ class NavigationPopup:
         # Create popup window
         self.popup = tk.Toplevel(root)
         self.popup.title("Navigation Popup")
+        self.popup.attributes('-topmost', True)
         self.popup.geometry("700x500")
         self.popup.resizable(False, False)
+
+        style = ttk.Style(self.popup)
+        style.theme_use("clam")
+        configure_styles(self.popup)
         
         # Create main container
-        self.container = ttk.Frame(self.popup)
+        self.container = ttk.Frame(self.popup, style="Dupe.TFrame")
         self.container.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
         
         # Label
-        self.label = ttk.Label(self.container, text="", font=('Arial', 12))
+        self.label = ttk.Label(self.container, text="", style="Hel.TLabel", wraplength=500)
         self.label.pack(pady=10)
         
         # Image display (will be empty if no image)
-        self.image_label = ttk.Label(self.container)
+        self.image_label = ttk.Label(self.container, style="Hel.TLabel")
         self.image_label.pack(pady=10)
         
         # Button frame
-        self.button_frame = ttk.Frame(self.container)
+        self.button_frame = ttk.Frame(self.container, style="Dupe.TFrame")
         self.button_frame.pack(pady=20)
         
         # Buttons
@@ -167,9 +240,10 @@ class NavigationPopup:
                 self.image_label.image = photo  # Keep reference
             except Exception as e:
                 logs.LOGGER.warning(f"Error loading image: {e}")
-                self.image_label.config(image='')
+                self.image_label.config(image="")
         else:
-            self.image_label.config(image='')
+            pass
+            self.image_label.config(image="")
         
         # Update button states
         self.prev_button['state'] = tk.NORMAL if self.current_index > 0 else tk.DISABLED
@@ -211,12 +285,18 @@ class ThreeButtonDialog:
         # Make the dialog stay on top
         self.dialog.attributes('-topmost', True)
         self.dialog.grab_set()  # Make it modal
+
+        # Add Style
+        style = ttk.Style(self.dialog)
+        style.theme_use("clam")
+        configure_styles(self.dialog)
         
         # Message
-        tk.Label(self.dialog, text=message, padx=20, pady=10).pack()
+        lbl_message = ttk.Label(self.dialog, text=message, style="Hel.TLabel")
+        lbl_message.pack(padx=20, pady=10)
         
         # Button frame
-        btn_frame = tk.Frame(self.dialog)
+        btn_frame = ttk.Frame(self.dialog, style="Dupe.TFrame")
         btn_frame.pack(pady=10)
         
         # Create dynamic buttons
@@ -226,12 +306,14 @@ class ThreeButtonDialog:
                 ttk.Button(
                     btn_frame, 
                     text=text,
+                    style="TButton",
                     command=self.show_help_popup
                 ).grid(row=0, column=i, padx=5)
             else:
                 ttk.Button(
                     btn_frame, 
                     text=text,
+                    style="TButton",
                     command=lambda v=return_value: self.set_result(v)
                 ).grid(row=0, column=i, padx=5)
         
@@ -273,30 +355,17 @@ def ask_user_keep_blank(blank_image):
     Display a window showing two images side by side with options to Keep or Skip.
     
     Args:
-        prev_image (PIL.Image): PIL Image object for the previous image
-        curr_image (PIL.Image): PIL Image object for the current image
+        blank_image (PIL.Image): Image to display 
         
     Returns:
-        bool: True if Keep is clicked, False if Skip is clicked
+        response (bool): True if Keep is clicked, False if Skip is clicked
     """
     winsound.MessageBeep(winsound.MB_ICONHAND)
-    root = tk.Toplevel()
-    root.attributes('-topmost', True)
+    root = create_root(win_attr=[("-topmost", True)])
     root.title("Blank Page Detected")
     
     # This will store the user's choice
-    result = None
-    configure_styles(root)
-    style = ttk.Style()
-    style.configure("Dupe.TFrame", background="ffffff")
-    style.configure("Dupe.TLabelframe",
-                    background="#ffffff",
-                    bordercolor="#3a5a9f",
-                    relief="ridge",
-                    borderwidth=2)
-    style.configure("Dupe.TLabalframe.label",
-                    font=('Segoe UI', 9, "bold"),
-                    foreground="#3a5a9f")
+    response = [None]
     
     # Get screen dimensions for scaling
     screen_width = root.winfo_screenwidth()
@@ -319,7 +388,7 @@ def ask_user_keep_blank(blank_image):
     # Add the warning label at the top
     warning_label = ttk.Label(
         main_frame,
-        text="BLANK PAGE DETECTED\nDo You Wish To Keep Current Image?",
+        text="BLANK PAGE DETECTED\n\nDo You Wish To Keep Current Image?",
         style="Title.TLabel",
         justify="center",
         padding=(0,0,0,15),
@@ -327,19 +396,18 @@ def ask_user_keep_blank(blank_image):
     warning_label.pack(pady=(0, 10))
     
     # Image comparison frame
-    compare_frame = ttk.Frame(main_frame)
+    compare_frame = ttk.Frame(main_frame, style="Dupe.TFrame")
     compare_frame.pack(fill=tk.BOTH, expand=True)
     
     # Scale images
     prev_img_tk = scale_image(blank_image.copy())
     
     # Blank Image
-    prev_frame = ttk.LabelFrame(compare_frame, 
-                                text="Image Detected As Blank",
+    blank_frame = ttk.LabelFrame(compare_frame, 
                                 style="Dupe.TLabelframe", 
                                 padding="8")
-    prev_frame.grid(row=0, column=0, padx=10, pady=5, sticky=tk.NSEW)
-    prev_label = ttk.Label(prev_frame, image=prev_img_tk, background="white")
+    blank_frame.grid(row=0, column=0, padx=10, pady=5, sticky=tk.NSEW)
+    prev_label = ttk.Label(blank_frame, image=prev_img_tk, background="#4a6baf", relief="flat", borderwidth=1)
     prev_label.image = prev_img_tk  # Keep a reference
     prev_label.pack()
     
@@ -350,22 +418,14 @@ def ask_user_keep_blank(blank_image):
     compare_frame.rowconfigure(0, weight=1)
     
     # Button frame
-    button_frame = ttk.Frame(main_frame)
+    button_frame = ttk.Frame(main_frame, style="Dupe.TFrame")
     button_frame.pack(pady=(15, 5))
-    
-    def set_result(value):
-        nonlocal result
-        result = value
-        root.grab_release()
-        root.withdraw()
-        root.update_idletasks()
-        root.after(50, root.destroy)
     
     # Keep button (returns True)
     keep_button = ttk.Button(
         button_frame, 
         text="Keep Current", 
-        command=lambda: set_result(True),
+        command=lambda: set_response(root, response, True),
         style="TButton",
         width=12
     )
@@ -375,7 +435,7 @@ def ask_user_keep_blank(blank_image):
     skip_button = ttk.Button(
         button_frame, 
         text="Skip Current", 
-        command=lambda: set_result(False),
+        command=lambda: set_response(root, response, False),
         style="TButton",
         width=12
     )
@@ -384,54 +444,41 @@ def ask_user_keep_blank(blank_image):
     again_button = ttk.Button(
         button_frame, 
         text="Try Again", 
-        command=lambda: set_result("again"),
+        command=lambda: set_response(root, response, "again"),
         style="TButton",
         width=12
     )
     again_button.pack(side=tk.LEFT, padx=8)
     
     # Center the window
-    root.update_idletasks()
-    width = root.winfo_width()
-    height = root.winfo_height()
-    x = (screen_width // 2) - (width // 2)
-    y = (screen_height // 2) - (height // 2)
-    root.geometry(f'+{x}+{y}')
-    
+    set_root_geometry(root)
+
     # Make the window modal
     root.grab_set()
+    keep_button.focus_set()
     root.wait_window()
-    logs.LOGGER.info(f"Keep Blank Response: {result}")
-    return result
+    logs.LOGGER.info(f"Keep Blank Response: {response[0]}")
+    return response[0]
 
 def ask_user_keep_dupe(prev_image, curr_image):
     """
     Display a window showing two images side by side with options to Keep or Skip.
     
     Args:
-        prev_image (PIL.Image): PIL Image object for the previous image
-        curr_image (PIL.Image): PIL Image object for the current image
+        prev_image (PIL.Image): Shows last image saved
+        curr_image (PIL.Image): Shows current image
         
     Returns:
-        bool: True if Keep is clicked, False if Skip is clicked
+        response (bool | str): returns value of button pressed True for Keep, False for Skip, "End" for End buttons.
     """
+   
+
     winsound.MessageBeep(winsound.MB_ICONHAND)
-    root = tk.Toplevel()
-    root.attributes('-topmost', True)
+    root = create_root(win_attr=[("-topmost", True)])
     root.title("Duplicate Page Detected")
     # This will store the user's choice
-    response = None
-    configure_styles(root)
-    style = ttk.Style()
-    style.configure("Dupe.TFrame", background="ffffff")
-    style.configure("Dupe.TLabelframe",
-                    background="#ffffff",
-                    bordercolor="#3a5a9f",
-                    relief="ridge",
-                    borderwidth=2)
-    style.configure("Dupe.TLabelframe.Label",
-                    font=('Segoe UI', 9, "bold"),
-                    foreground="#3a5a9f")
+    response = [None]
+
     
     # Get screen dimensions for scaling
     screen_width = root.winfo_screenwidth()
@@ -454,15 +501,15 @@ def ask_user_keep_dupe(prev_image, curr_image):
     # Add the warning label at the top
     warning_label = ttk.Label(
         main_frame,
-        text="DUPLCIATE PAGE DETECTED\nKeep current image or skip?",
+        text="DUPLCIATE PAGE DETECTED\n\nKeep current image or skip?",
         style="Title.TLabel",
         justify="center",
         padding=(0,0,0,15)
     )
-    warning_label.pack()
+    warning_label.pack(pady=(0, 10))
     
     # Image comparison frame
-    compare_frame = ttk.Frame(main_frame)
+    compare_frame = ttk.Frame(main_frame, style="Dupe.TFrame")
     compare_frame.pack(fill=tk.BOTH, expand=True)
     
     # Scale images
@@ -476,7 +523,7 @@ def ask_user_keep_dupe(prev_image, curr_image):
         style="Dupe.TLabelframe" ,
         padding="8")
     prev_frame.grid(row=0, column=0, padx=10, pady=5, sticky=tk.NSEW)
-    prev_label = ttk.Label(prev_frame, image=prev_img_tk, background="white")
+    prev_label = ttk.Label(prev_frame, image=prev_img_tk, background="#4a6baf", relief="flat", borderwidth=1)
     prev_label.image = prev_img_tk  # Keep a reference
     prev_label.pack()
     
@@ -486,7 +533,7 @@ def ask_user_keep_dupe(prev_image, curr_image):
                                 style="Dupe.TLabelframe", 
                                 padding="8")
     curr_frame.grid(row=0, column=1, padx=5, pady=5, sticky=tk.NSEW)
-    curr_label = ttk.Label(curr_frame, image=curr_img_tk, background="white")
+    curr_label = ttk.Label(curr_frame, image=curr_img_tk, background="#4a6baf", relief="flat", borderwidth=1)
     curr_label.image = curr_img_tk  # Keep a reference
     curr_label.pack()
     
@@ -496,23 +543,14 @@ def ask_user_keep_dupe(prev_image, curr_image):
     compare_frame.rowconfigure(0, weight=1)
     
     # Button frame
-    button_frame = ttk.Frame(main_frame)
+    button_frame = ttk.Frame(main_frame, style="Dupe.TFrame")
     button_frame.pack(pady=(15,5))
-    
-    def set_response(value):
-        nonlocal response
-        response = value
-        root.grab_release()
-        root.withdraw()
-        root.update_idletasks()
-        root.after(50, root.destroy)
-
     
     # Keep button (returns True)
     keep_button = ttk.Button(
         button_frame, 
         text="Keep Current", 
-        command=lambda: set_response(True),
+        command=lambda: set_response(root, response, True),
         style="TButton",
         width=12
     )
@@ -522,7 +560,7 @@ def ask_user_keep_dupe(prev_image, curr_image):
     skip_button = ttk.Button(
         button_frame, 
         text="Skip Current", 
-        command=lambda: set_response(False),
+        command=lambda: set_response(root, response, False),
         style="TButton",
         width=12
     )
@@ -531,24 +569,21 @@ def ask_user_keep_dupe(prev_image, curr_image):
     eob_button = ttk.Button(
         button_frame,
         text = "End Of Book",
-        command=lambda: set_response("End"),
+        command=lambda: set_response(root, response, "End"),
         style="TButton",
         width = 12
     )
     eob_button.pack(side=tk.LEFT, padx=8)
     # Center the window
-    root.update_idletasks()
-    width = root.winfo_width()
-    height = root.winfo_height()
-    x = (screen_width // 2) - (width // 2)
-    y = (screen_height // 2) - (height // 2)
-    root.geometry(f'+{x}+{y}')
+    set_root_geometry(root)
     
     # Make the window modal
     root.grab_set()
+
+    keep_button.focus_set()
     root.wait_window()
-    logs.LOGGER.info(f"Keep duplicate response: {response}")
-    return response
+    logs.LOGGER.info(f"Keep duplicate response: {response[0]}")
+    return response[0]
 
 def countdown(timer_label, count, countdown_window):
     if count >= 0:

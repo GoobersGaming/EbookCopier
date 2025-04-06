@@ -98,52 +98,52 @@ def cont_message(selected_site, page_view):
     if selected_site.lower() == "libby":
         message = (
                 "Please Ensure The Following:\n\n"
-                "1: The Book You Wish To Copy Is Open And Is The Active Tab In Microsoft Edge\n"
-                f"2: The Book is set to view {page_view} at once\n"
-                "3: You Are On The First Page Of The Book\n"
-                "4: Article Button Is Set To Never\n"
-                "5: Microsoft Edge Is In Fullscreen\n"
-                "6: Microsoft Edge Is Open On The Correct Display, If Not Please Move It Before You Continue\n\n"
-                "You Can Pause By Pressing The Esc Key"
-                "Press Help for More Informatiion"
+                "1: The Book You Wish To Copy Is Open And Is The Active Tab In Microsoft Edge\n\n"
+                "2: Microsoft Edge Is In Fullscreen\n\n"
+                "3: You Are On The First Page Of The Book\n\n"
+                "4: You Know How Big To Set The Capture Area\n\n"
+                "5: Article Button Is Set To Never\n\n"
+                "You Can Pause By Pressing The Esc Key\n\n"
+                "Press Help for More Information..\n"
         )
         help =[
             {'label': 
-                "You May Need To Press \"Arrow Up\" Or \"Arrow Down\" To Open And Close The Top Menu Bar\n "
-                "Set Your Page View By Pressing The Circled Button\n "
+                "You May Need To Press \"Arrow Up\" Or \"Arrow Down\" On The Keyboard To Open And Close The Menu Bar"
+                "Set Your Page View By Pressing The Circled Button "
                 "This Will Change Wether You See Two Pages At Once Or One Page", 
                 'image_path': "images/libby_page_view_button.png"
             },
             {'label': 
-                "Next Select The Appearance Button A Menu Should Appear At The Bottom Of The Screen", 
+                "Next You Can Select The Appearance Button To Adjust Font, Theme, And Remove Article Button", 
                 'image_path': "images/libby_apperance_button.png"
             },
             {"label": 
-                "Scroll Down To The Bottom Of The Apperance Menu And Set Article Button To Never\n"
-                "You May Change The Background Color If You Wish, But It Shouldnt Matter", 
+                "Ensure The Article Button Is Set To Never Under Apperance"
+                "You Can Change Font Size, Color, Etc. Just Remember How Wide To Draw Your Capture Area", 
                 "image_path": "images/libby_article_button.png"
             },
             {"label": 
-                "Please Ensure All Menus In Libby Are Closed Before Proceeding.\n"
-                "You May Need To Click The Carrot Button \"^\" To Close The Appearance Menu\n"
-                "And/Or Press The \"Up Arrow\" Or \"Down Arrow\" To Close The Top Menu On Libby"}]
+                "Ensure All Menus Are Closed Before You Continue"
+                "You May Need To Click The Carrot Button \"^\" To Close The Appearance Menu"
+                "And/Or Press The \"Up Arrow\" Or \"Down Arrow\" To Close The Top Menu On Libby"},
+            {"label":
+                "Keep In Mind How Big You Need To Make The Capture Area After Making Any Changes"}]
         
     elif selected_site.lower() == "hoopla":
         message = (
-                "Please Ensure The Following:\n\n"
-                "1: The Book You Wish To Copy Is Open And Is The Active Tab In Microsoft Edge\n\n"
-                "2: Ensure The Page Count Is Correct, Page Count Is Differfent In Full Screen, Cancel If Not\n\n"
-                "3: You Are On The First Page Of The Book\n\n"
-                "4: Calculating Pages Has Dissapeared From The Bottom Of The Page\n\n"
-                "5: Microsoft Edge Is In Fullscreen\n\n"
-                "6: Microsoft Edge Is Open On The Correct Display, If Not Please Move It Before You Continue\n\n"
-                "Hoopla Screen May Unload During The Next Step, It Should Load By The Time The Book Copy Starts\n\n"
-                "Once Copying Starts You Can Pause\\Cancel By Pressing The ESC Key.\n\n"
+                "Please Ensure The Following:\n"
+                "1: The Book You Wish To Copy Is Open And Is The Active Tab In Microsoft Edge\n"
+                "2: Microsoft Edge Is In Fullscreen\n"
+                "3: Ensure You Have The Correct Page Count When The Book Is Open In FullScreen (FN+F11)\n"
+                "4: You Are On The First Page Of The Book\n"
+                "5: Calculating Pages Has Dissapeared From The Bottom Of The Page\n"
+                "Hoopla Screen May Unload During The Next Step, It Should Load By The Time The Book Copy Starts\n"
+                "You Can Pause By Pressing The ESC key\n"
                 "Press Help for More Informatiion")
         
         help = [
             {"label":
-                "If You Wish To Change Color Scheme, Or Text Size Of The Book Do So Now\n"
+                "If You Wish To Change Color Scheme, Or Text Size Of The Book Do So Now"
                 "By Pressing The Menu Button",
                 "image_path": "images/hoopla_menu_button.png"},
              {"label": 
@@ -153,7 +153,9 @@ def cont_message(selected_site, page_view):
                 "Here You Can Change Theme, Text Size, Line Spacing Etc To Your Preference"},
                {"label": 
                     "Close Settings When Done And Wait For Calculating Pages To Dissapear At The Bottom",
-                    "image_path": "images/hoopla_calculating_pages.png"}]
+                    "image_path": "images/hoopla_calculating_pages.png"},
+                {"label":
+                    "Keep In Mind How Big You Need To Make The Capture Area After Making Any Changes"}]
     return message, help
 
  

@@ -7,12 +7,13 @@ from ui.help import cont_message
 from ui.main_ui import BookCopierApp
 from ui.rectangle_drawer import RectangleEditor
 from utils.take_screenshots import capture_ebook
-import tkinter as tk
+from pathlib import Path
 
 
 """Main Python Module For Running The Script"""
-"""TODO:
-Standardnize variables and functions names across project."""
+#TODO:
+        # Standanize Variable/Function Naming
+        # Stadanize Commenting
 
 def start_button_action(book_param, main_window, settings):
     if not _validate_inputs(book_param):
@@ -50,39 +51,46 @@ def _book_cancelled(file_path):
         except FileNotFoundError:
             pass
         finally:
-            popup_windows.messagebox.showinfo("PDF Deleted", f"{file_path}\nWas Removed")
+            popup_windows.message_box("PDF Removed", f"{file_path}\n Was Removed")
             logs.LOGGER.info("PDF Deleted")
 
 def _book_completed(file_path):
-    popup_windows.book_finished_popup("Finished", f"Book Saved To: {file_path}")
+    popup_windows.message_box("Finished", f"PDF Saved To:\n {file_path}")
     completed_path = os.path.dirname(file_path)
     os.startfile(completed_path)
     logs.LOGGER.info("Book Finished")
 
+
+
 def _validate_inputs(book):
     """Validate User Inputs, and show error warnings for missing inputs"""
-    if not book.file_path:
-        popup_windows.error_popup("Error 0: No File Location", "Please Select A File Location To Save The PDF Before Continuing")
-        return False    
     try:
-        if book.selected_site == "" or book.selected_site is None:
-            raise ValueError()
-        int(book.timer)
-        int(book.book_length)
+        book.validate()
     except ValueError as e:
-        if not isinstance(book.selected_site, str) or book.selected_site == "":
-            logs.LOGGER.debug(f"book.selected_site: {book.selected_site}")
-            popup_windows.error_popup("Error 1: No Site Selected",
-                                            "Please Selected A Site Before Continuing")
-        if not str(book.book_length).isdigit():
-            logs.LOGGER.debug(f"book.book_length: {book.book_length}")
-            popup_windows.error_popup("Missing Page Count",
-                                            "Please Enter The Book Length")
-        elif not str(book.timer).isdigit():
+        error_code = str(e)
+        if error_code == "empty_file_path":
+            logs.LOGGER.debug(f"{book.file_path} invalid file path")
+            popup_windows.message_box("Missing Save Path", "Please Enter A Save Location For Your PDF")
+
+        elif error_code == "invalid_directory":
+            logs.LOGGER.debug(f"{book.file_path} invalid file path")
+            popup_windows.message_box("Missing File Dir", "Please Enter A Valid Save Location For Your PDF")
+
+        elif error_code == "invalid_timer":
             logs.LOGGER.debug(f"book.timer: {book.timer}")
-            popup_windows.error_popup("Missing Timer",
-                                            "Please enter A Valid Number For The Timer")
-        logs.LOGGER.info("User inputs invalid, returned false")
+            popup_windows.message_box("Missing Timer", "Please Enter A Number For The Timer")
+
+        elif error_code == "invalid_length":
+            logs.LOGGER.debug(f"book.book_length: {book.book_length}")
+            popup_windows.message_box("Missing Page Count", "Please Enter The Book's Length")
+
+        elif error_code == "no_site_selected":
+            logs.LOGGER.debug(f"book.selected_site: {book.selected_site}")
+            popup_windows.message_box("No Site Selected", "Please Selct A Site Before Continuing")
+
+        elif error_code == "invalid_page_view":
+            logs.LOGGER.debug(f"page_view: {book.page_view}")
+            popup_windows.message_box("No Page View Selected", "Please Select A Valid Page View")
         return False
     logs.LOGGER.info("User inputs valid")
     return True
@@ -91,17 +99,16 @@ def _prepare_browser_enviroment():
     """Find, Activate, And Full Screen Microsoft Edge"""
     time.sleep(0.1)
     if not browser.activate_edge():
-        popup_windows.error_popup("Microsoft Edge Not Found",
-                                        "Please Open Micrsoft Edge And Go To The Book You Wish To Copy")
+        popup_windows.message_box("Microsoft Edge Not Found", "Please Open Microsoft Edge To The Book You Wish To Copy")
         logs.LOGGER.info("Microsoft Edge is Not Open")
         return False
     time.sleep(0.5)
 
     if not browser.enter_fullscreen_if_needed():
         logs.LOGGER.info("Microsoft Edge Failed To Enter Full Screen")
-        popup_windows.error_popup("Fullscreen Failed",
-                                        "Failed To Enter Fullscreen In Microsoft Edge, Please Try Again")
+        popup_windows.message_box("Fullscreen Failed", "Failed To Enter Fullscreen In Microsoft Edge, Please Try Again")
         return False
+    
     logs.LOGGER.info("Browser enviroment prepared")
     return True
 
