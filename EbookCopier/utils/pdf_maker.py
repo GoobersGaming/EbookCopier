@@ -1,9 +1,12 @@
 import os
 import fitz
 from io import BytesIO
-from utils import logs
+import logging
+logger = logging.getLogger(__name__)
 
 """Create and Save Your PDF"""
+#TODO: Move to Pikepdf
+# Add a image type, quality, decompression, all from user settings.
 
 def add_image_to_pdf(images : list, pdf_path : str):
     if len(images) == 0:
@@ -13,10 +16,9 @@ def add_image_to_pdf(images : list, pdf_path : str):
     :param str pdf_path: File Location Of Where To Save/Append PDF"""
 
     if os.path.exists(pdf_path):
-        logs.LOGGER.info(f"PDF path exists: {pdf_path}")
         doc = fitz.open(pdf_path)
     else:
-        logs.LOGGER.info(f"PDF path created: {pdf_path}")
+        logging.debug(f"Pdf created at: {pdf_path}")
         doc = fitz.open()
 
     for img in images:
@@ -37,11 +39,11 @@ def add_image_to_pdf(images : list, pdf_path : str):
     try:
         doc.save(pdf_path, **save_kwargs)
         doc.close()
-        logs.LOGGER.info(f"Batch Saved To PDF: {pdf_path}")
+        logging.info("batch saved")
         return True
     except ValueError:
         doc.save(pdf_path, incremental=True , **save_kwargs)
         doc.close()
-        logs.LOGGER.info(f"Batch appended to existing PDF file: {pdf_path}")
+        logging.info("Batch appened to existing pdf.")
         return True
 

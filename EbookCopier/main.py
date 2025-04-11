@@ -1,208 +1,245 @@
+from utils.logs import setup_logging
+import logging
 import os
 import time
 from utils import browser
 from ui import popup_windows
-from utils import logs
 from ui.help import cont_message
-from ui.main_ui import BookCopierApp
+from ui.main_ui import BookCopierUI
 from ui.rectangle_drawer import RectangleEditor
-from utils.take_screenshots import capture_ebook
 from pathlib import Path
+from ebook_capture import capture_ebook
+from settings.config import UserSettings
+
+# TODO: Do I want to overwrite the file if it exists, when user choses a file path?
+# remove pathlib? not really needed, seems under utilize, use os.
+# standarize my naming covention and commenting to be uniform
+# am i over logging?
+# Make my messagebox nicer. espically for displaying file location.
+# Add more browser support?
+# True no focus stealing "interactive" windows.
+# add a settings window to visually adjust config.toml
+# Move update.bat to python script.
+# if update -> new file handles download/movement and main restart -> run update file, closes main, updates -> restart main, delete update file
+# Add more user configuration over log size, image types, compression, etc.
+# Remove PyMuPDF
 
 
-"""Main Python Module For Running The Script"""
-#TODO:
-        # Standanize Variable/Function Naming
-        # Stadanize Commenting
+class BookCopier:
+    """Validates/gathers user inputs, prepares enviroment, handles the starting and finishing of the automated capture proocess."""
+    def __init__(self, main_window, settings):
+        self.main_window = main_window
+        self.settings = settings
+        self.overlay = None
+        self.book = None
 
-def start_button_action(book_param, main_window, settings):
-    if not _validate_inputs(book_param):
-        return
-    overlay = popup_windows.disable_window(main_window) 
-    try:
-        if not _prepare_browser_enviroment():
+    def start(self, book_param):
+        if not self._validate_inputs(book_param):
             return
-        # Find what monitor edge is on
-        book_param.monitor_display = browser.get_edge_display_number()
-        logs.LOGGER.debug(f"book_param.monitor_display set: {book_param.monitor_display}")
-        if not _confirm_continuation(book_param):
-            return
-        if not _process_capture_box(settings, book_param, main_window):
-            return
-        main_window.withdraw()
-        finished_book = _record_book(settings, book_param)
-        if finished_book == "cancelled":
-            _book_cancelled(book_param.file_path)
-        else:
-            _book_completed(book_param.file_path)
-        app.reset_ui()
-        book_param.clear_values()
-        logs.LOGGER.info("App reset, book_params cleared")
-    
-    finally:
-        main_window.deiconify() 
-        popup_windows.restore_window(overlay)
-
-def _book_cancelled(file_path):
-    logs.LOGGER.info("Ebook Copier Cancelled")
-    if popup_windows.ask_yes_no("Delete PDF", "Do You Want To Delete Unfinished Book?", "Delete", "Keep", btn_focus="Delete"):
+        self.book = book_param
+        self.overlay = popup_windows.disable_window(self.main_window)
         try:
-            os.remove(file_path)
-        except FileNotFoundError:
-            pass
+            if not self._prepare_browser_enviroment():
+                return
+            self.book.monitor_display = browser.get_edge_display_number()
+            logging.debug(f"Edge located on: {book_param.monitor_display} monitor")
+
+            if not self._confirm_continuation():
+                return
+
+            if not self._process_capture_box():
+                return
+
+            # Withdraw main ui window, and begin book processing
+            self.main_window.withdraw()
+            finished_book = self._record_book()
+            logging.debug(f"Finished Book is: {finished_book}")
+
+            # Handle finished book
+            if finished_book == "cancelled":
+                self._handle_cancelled_book()
+            else:
+                self._handle_completed_book()
+            self._reset_application()
+
+        except Exception as e:
+            logging.error(f"Runtime error: {str(e)}")
+            popup_windows.message_box("Runtime Error", f"Run failed\nError: {str(e)}")
+
         finally:
-            popup_windows.message_box("PDF Removed", f"{file_path}\n Was Removed")
-            logs.LOGGER.info("PDF Deleted")
+            # Restore main ui window
+            self.main_window.deiconify()
+            popup_windows.restore_window(self.overlay)
 
-def _book_completed(file_path):
-    popup_windows.message_box("Finished", f"PDF Saved To:\n {file_path}")
-    completed_path = os.path.dirname(file_path)
-    os.startfile(completed_path)
-    logs.LOGGER.info("Book Finished")
+    def _validate_inputs(self, book):
+        """Validate user inputs"""
 
+        validation_responses = {
+            "empty_file_path": ("Missing Save Path", "Please enter a save location for pdf."),
+            "invalid_file_path": ("Missing File Dir", "Please enter a valid save location for your pdf"),
+            "invalid_timer": ("Invalid Timer", "Please enter a valid timer for delay between pages"),
+            "empty_site_selected": ("Invalid Site", "Please choose a valid site from the dropdown menu"),
+            "invalid_page_view": ("Invalid Page View", "Please select a valid page view for the site"),
+            "invalid_book_length": ("Invalid Book Length", "Please enter the number of pages in the book.")
+        }
+        try:
+            book.validate()
+            logging.info("Valid user inputs")
+            return True
 
+        except ValueError as e:
+            error_code = str(e)
+            if error_code in validation_responses:
+                title, message = validation_responses[error_code]
+                # Remove prefix from string
+                for prefix in ["empty_", "invalid_"]:
+                    if error_code.startswith(prefix):
+                        attribute_name = error_code[len(prefix):]
+                        break
+                    else:
+                        attribute_name = error_code
+                # Get value from Book, returns None as default
+                attribute_value = getattr(book, attribute_name, None)
+                logging.debug(f"Invalid input ({error_code}): {attribute_value}")
+                popup_windows.message_box(title, message)
+            return False
 
-def _validate_inputs(book):
-    """Validate User Inputs, and show error warnings for missing inputs"""
-    try:
-        book.validate()
-    except ValueError as e:
-        error_code = str(e)
-        if error_code == "empty_file_path":
-            logs.LOGGER.debug(f"{book.file_path} invalid file path")
-            popup_windows.message_box("Missing Save Path", "Please Enter A Save Location For Your PDF")
+    def _prepare_browser_enviroment(self):
+        """Check and Setup browser"""
+        logging.info("Activate Edge")
+        if not browser.activate_edge_window():
+            popup_windows.message_box("Microsoft Edge not found", "Please make sure Microsoft Edge is open, and you are on the book you wish to copy")
+            logging.warning("Microsoft Edge not found, Are you sure its running?")
+            return False
+        logging.info("edge is active")
+        time.sleep(0.5)
 
-        elif error_code == "invalid_directory":
-            logs.LOGGER.debug(f"{book.file_path} invalid file path")
-            popup_windows.message_box("Missing File Dir", "Please Enter A Valid Save Location For Your PDF")
-
-        elif error_code == "invalid_timer":
-            logs.LOGGER.debug(f"book.timer: {book.timer}")
-            popup_windows.message_box("Missing Timer", "Please Enter A Number For The Timer")
-
-        elif error_code == "invalid_length":
-            logs.LOGGER.debug(f"book.book_length: {book.book_length}")
-            popup_windows.message_box("Missing Page Count", "Please Enter The Book's Length")
-
-        elif error_code == "no_site_selected":
-            logs.LOGGER.debug(f"book.selected_site: {book.selected_site}")
-            popup_windows.message_box("No Site Selected", "Please Selct A Site Before Continuing")
-
-        elif error_code == "invalid_page_view":
-            logs.LOGGER.debug(f"page_view: {book.page_view}")
-            popup_windows.message_box("No Page View Selected", "Please Select A Valid Page View")
-        return False
-    logs.LOGGER.info("User inputs valid")
-    return True
-
-def _prepare_browser_enviroment():
-    """Find, Activate, And Full Screen Microsoft Edge"""
-    time.sleep(0.1)
-    if not browser.activate_edge():
-        popup_windows.message_box("Microsoft Edge Not Found", "Please Open Microsoft Edge To The Book You Wish To Copy")
-        logs.LOGGER.info("Microsoft Edge is Not Open")
-        return False
-    time.sleep(0.5)
-
-    if not browser.enter_fullscreen_if_needed():
-        logs.LOGGER.info("Microsoft Edge Failed To Enter Full Screen")
-        popup_windows.message_box("Fullscreen Failed", "Failed To Enter Fullscreen In Microsoft Edge, Please Try Again")
-        return False
-    
-    logs.LOGGER.info("Browser enviroment prepared")
-    return True
-
-def _confirm_continuation(book):
-    """Show continuation dialog"""
-    message_content, help_content = cont_message(book.selected_site, book.page_view)
-    response = popup_windows.custom_ask(title="Before Continuing", 
-                                        message = message_content, 
-                                        buttons={"Continue": True, 
-                                                 "Cancel": False, 
-                                                 "Help": "Help"}, 
-                                                 help_items = help_content)   
-    if response is False:
-        logs.LOGGER.info("Continuation cancelled")
-        return False
-    else:
-        logs.LOGGER.info("Continuation continued")
+        if not browser.enter_fullscreen_if_needed():
+            logging.warning("Microsoft edge failed to enter full screen.")
+            popup_windows.message_box("Fullscreen failed", "Microsoft Edge failed to enter fullscreen, See administrator if this continues.")
+            return False
+        logging.info("Browser envrioment prepare")
         return True
 
-def _process_capture_box(settings, book, main_window):
-    """Handles Capture Box Selection And Saving To Toml"""
-    default_bounding_box = _get_saved_bounding_box(settings, book)
+    def _confirm_continuation(self):
+        "Get user confirmation to continue to selection area"
+        message_content, help_content = cont_message(self.book.selected_site, self.book.page_view)
+        reponse = popup_windows.custom_ask(
+            title="Before Continuing",
+            message=message_content,
+            buttons={"Continue": True, "Cancel": False, "Help": "help"},
+            help_items=help_content
+        )
+        if reponse is False:
+            logging.info("User cancelled continuation")
+            return False
 
-    editor = RectangleEditor(
-        coords=default_bounding_box,
-        monitor_num=book.monitor_display,
-        parent=main_window
-    )
-    main_window.wait_window(editor.root)
-
-    book.capture_box = editor.get_coords()
-    
-    _save_bounding_box(settings, book)
-    
-    _prepare_browser_enviroment()
-
-    if book.capture_box:
-        logs.LOGGER.info("Capture area set")
+        logging.info("User confirmed continuation")
         return True
-    else:
-        logs.LOGGER.warning("Capture area not set")
+
+    def _process_capture_box(self):
+        # TODO: consider adding a raise to popup if failure
+        """Sets/saves selection area of screen"""
+        starting_bounding_box = self._get_saved_bounding_box()
+        logging.debug(f"Rectangle Editors starting bounding box: {starting_bounding_box}")
+        rect_drawer = RectangleEditor(
+            coords=starting_bounding_box,
+            monitor_num=self.book.monitor_display,
+            parent=self.main_window
+        )
+        # Wait for rectangle editor to finish
+        self.main_window.wait_window(rect_drawer.root)
+
+        self.book.capture_box = rect_drawer.get_coords()
+        # Save user bbox cords
+        self._save_bounding_box()
+        # re-prepare browser
+        self._prepare_browser_enviroment()
+
+        if self.book.capture_box:
+            return True
+        logging.warning("Capture box not set")
         return False
 
-def _record_book(settings, book_param):
-    finished_book_args = {"timer": int(book_param.timer), 
-                          "total_pages": int(book_param.book_length), 
-                          "capture_area": book_param.capture_box, 
-                          "max_img": settings.max_images, 
-                          "max_mem": settings.max_memory_mb,
-                          "selected_site": book_param.selected_site, 
-                          "output_pdf": book_param.file_path}
-    if book_param.capture_box:
-        logs.LOGGER.debug(f"Starting capture_ebook, args: {finished_book_args}")
-        finished_book = capture_ebook(**finished_book_args)
-        logs.LOGGER.info("capture_ebook has finished")
-        logs.LOGGER.debug(f"finished_book: {finished_book}")
-        return finished_book
+    def _record_book(self):
+        """Start the capture recording"""
+        # TODO: Add a else raise?
+        if self.book.capture_box:
+            logging.info("Ebook capture started..")
+            recorded_book = capture_ebook(self.book, self.settings)
+            logging.info(f"recorded book: {recorded_book}")
+            return recorded_book
 
+    def _handle_cancelled_book(self):
+        """Handles capture process being cancelled"""
+        logging.info("Run cancelled")
+        if popup_windows.ask_yes_no("Delete PDF", "Do you wish to delete the unfinished book?", "Delete", "Keep", btn_focus="Delete"):
+            try:
+                os.remove(self.book.file_path)
+            except FileNotFoundError:
+                # incase book was cancelled before a batch was actually saved
+                pass
+            finally:
+                popup_windows.message_box("PDF removed", f"{self.book.file_path}\nDeleted")
+                logging.info("PDF removed")
+        else:
+            # User chose to keep unfinished book
+            self._handle_completed_book()
 
-def _get_saved_bounding_box(settings, book):
-    """Retrieve Saved Bounding Box Data If It Exists"""
-    try:
-        return settings.saved_capture_boxes[book.selected_site][str(book.monitor_display)][book.page_view]
-    except Exception:
-        logs.LOGGER.info(f"No Saved Bounding Box Data For Site:{book.selected_site} Monitor:{book.monitor_display}, Page View:{book.page_view}")
-        return None
+    def _handle_completed_book(self):
+        """handle capture process successfully completing"""
+        popup_windows.message_box("Finished", f"PDF saved to:\n{self.book.file_path}")
+        completed_path = os.path.dirname(self.book.file_path)
+        os.startfile(completed_path)
+        logging.info(f"Book completed, saved to: {self.book.file_path}")
 
-def _save_bounding_box(settings, book):
-    """Save Bouning Box to settings/toml, if new or changed"""
-    if not book.capture_box:
-        return
-    box = book.capture_box.copy()
-    box.pop("monitor")
+    def _reset_application(self):
+        """resets ui and book params"""
+        app.reset_ui()
+        self.book.clear_values()
+        logging.info("App reset")
 
-    try:
-        if settings.saved_capture_boxes[book.selected_site][str(book.monitor_display)][book.page_view] != box:
-            settings.update_saved_capture_box(
-                book.selected_site,
-                book.page_view,
-                book.capture_box
-            )
-            logs.LOGGER.info("Capture Box Entry Updated in config.toml")
-            logs.LOGGER.debug(f"Config.toml updated, selected_site: {book.selected_site}, page_view: {book.page_view}, capture_box: {book.capture_box}")
-        logs.LOGGER.info("Using existing capture box data from config.toml")
-    except KeyError:
-        # No existing entry - save new one
-        settings.update_saved_capture_box(book.selected_site, book.page_view, book.capture_box)
-        logs.LOGGER.info(f"Capture Box Entry Addedd to config.toml")
-        logs.LOGGER.debug(f"Entry added to Config.toml, selected_site: {book.selected_site}, page_view: {book.page_view}, capture_box: {book.capture_box}")
+    def _get_saved_bounding_box(self):
+        """Retrieve saved bounding box data if it exists"""
+        logging.debug(f"Checking for saved bbox data, site: {self.book.selected_site}, monitor: {self.book.monitor_display}, page view: {self.book.page_view}")
+        try:
+            bbox = self.settings.saved_capture_boxes[self.book.selected_site][str(self.book.monitor_display)][self.book.page_view]
+            logging.debug(f"Saved bbox{bbox}, from site{self.book.selected_site}, on monitor: {self.book.monitor_display}, with page view: {self.book.page_view}")
+            return bbox
+        except Exception:
+            return None
+
+    def _save_bounding_box(self):
+        """Save bounding box after selection"""
+        if not self.book.capture_box:
+            return
+        box = self.book.capture_box.copy()
+        box.pop("monitor")
+        try:
+            if self.settings.saved_capture_boxes[self.book.selected_site][str(self.book.monitor_display)][self.book.page_view] != box:
+                self.settings.update_saved_capture_box(
+                    self.book.selected_site,
+                    self.book.page_view,
+                    self.book.capture_box)
+                logging.info("Saving capture box data to config.toml")
+                logging.debug(f"Saving capture box: {self.book.capture_box}, of page view: {self.book.page_view}, for site: {self.book.selected_site}")
+            else:
+                logging.info("Using previously saved capture box data")
+        except KeyError:
+            # No previously saved capture box data, save new data to config.toml
+            self.settings.update_saved_capture_box(self.book.selected_site, self.book.page_view, self.book.capture_box)
+
 
 if __name__ == "__main__":
     update_path = Path("update.bat").resolve()
     if update_path.exists():
         new_location = update_path.parent.parent / update_path.name
         update_path.replace(new_location)
-    app = BookCopierApp(start_command=start_button_action)
+
+    setup_logging(console_logging=True, console_level=logging.DEBUG)
+    logging.info("Logger started")
+    user_settings = UserSettings()
+    app = BookCopierUI(user_settings)
+    book_copier = BookCopier(app.window, user_settings)
+    app.set_start_command(book_copier.start)
     app.run()

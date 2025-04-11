@@ -1,48 +1,53 @@
-import logging
 import os
+import sys
+import logging
 from logging.handlers import RotatingFileHandler
+logger = logging.getLogger(__name__)
 
-"""TODO:
-Better way of importing/using this."""
 
-LOGGER = None
 
 class LevelFilter(logging.Filter):
+    """Create filter for logger"""
     def __init__(self, excluded_levels):
         self.excluded_levels = excluded_levels
 
-    def filter(self, record):
-        return record.levelno not in self.excluded_levels
+def setup_logging(log_dir="logs", max_log_size=5*1024*1024, ignore_levels=None, console_logging=False, console_level=logging.INFO):
+    """Setups up a logger and console logger"""
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = f"{log_dir}/Ebook.log"
 
-class AppLogger:
-    def __init__(self, name="app", log_dir="logs", max_log_size=5*1024*1024, ignore_levels=None):
-        """
-        Args:
-            ignore_levels: List of levels to ignore (e.g., [logging.DEBUG, logging.WARNING])
-        """
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.DEBUG)  # Default level (can be overridden)
-        
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = f"{log_dir}/{name}.log"
-        
-        handler = RotatingFileHandler(
-            log_file, maxBytes=max_log_size, backupCount=3
-        )
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        
-        # Add filter to ignore specified levels
-        if ignore_levels:
-            handler.addFilter(LevelFilter(excluded_levels=ignore_levels))
-        
-        self.logger.addHandler(handler)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    # RotatingFileHandler
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=max_log_size, backupCount=3
+    )
+    file_handler.setFormatter(formatter)
+
+    if ignore_levels:
+        file_handler.addFilter(LevelFilter(excluded_levels=ignore_levels))
     
-    def get_logger(self):
-        return self.logger
+    #Console Handler
+    if console_logging:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(console_level)
     
+    # apply configuration to root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    #prevent duplicates
+    root_logger.handlers.clear()
+
+    # add handlers
+    root_logger.addHandler(file_handler)
+    if console_logging:
+        root_logger.addHandler(console_handler)
+    
+    return root_logger
 
 
 
