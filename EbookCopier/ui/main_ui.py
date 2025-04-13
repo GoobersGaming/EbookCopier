@@ -4,6 +4,9 @@ from tkinter import ttk, filedialog
 from ui.styles import configure_styles
 from utils.logs import setup_logging
 from settings.config import Book
+from update.update_manager import UpdateManger
+from ui import popup_windows
+import time
 logger = logging.getLogger(__name__)
 
 """TODO:
@@ -55,7 +58,23 @@ class BookCopierUI:
         self._setup_main_window()
         self._create_widgets()
         self.start_command = start_command
+        self._check_for_update()
         self.site_var.trace_add("write", self._handle_site_change)
+
+    def _check_for_update(self):
+        update_manager = UpdateManger()
+        try:
+            if not update_manager.check_for_update():
+                return False
+            time.sleep(0.5)
+            response = popup_windows.ask_yes_no("Update Available", "Would You like to download and install the new update?", btn_focus="Yes", ebook_running=False)
+            if not response:
+                return False
+            if not update_manager.download_repo():
+                return False
+            update_manager.start_install()
+        except Exception as e:
+            logging.error(f"Update Failed {str(e)}")
 
     def _setup_main_window(self):
         self.window.title("Book Copier")

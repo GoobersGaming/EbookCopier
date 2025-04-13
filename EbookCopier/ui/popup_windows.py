@@ -186,6 +186,10 @@ def ask_yes_no(title, message, true_button="Yes", false_button="No", btn_focus=N
         response (bool) : Returns bool of button clicked
     """
     root = create_root()
+    if not ebook_running:
+        if hasattr(root, "master") and root.master.winfo_exists():
+            root.transient(root.master)
+
     root.title(title)
 
     response = [False]
@@ -224,6 +228,8 @@ def ask_yes_no(title, message, true_button="Yes", false_button="No", btn_focus=N
     # Ensures monitor enviroment is set correctly after closing.
     if ebook_running is True:
         check_enviroment()
+
+    root.grab_release()
     # logs.LOOGGER.info(f"Askyn: {title}, response: {response[0]}")
     return response[0]
 

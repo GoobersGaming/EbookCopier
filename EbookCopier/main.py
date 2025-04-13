@@ -7,7 +7,6 @@ from ui import popup_windows
 from ui.help import cont_message
 from ui.main_ui import BookCopierUI
 from ui.rectangle_drawer import RectangleEditor
-from pathlib import Path
 from ebook_capture import capture_ebook
 from settings.config import UserSettings
 
@@ -231,11 +230,6 @@ class BookCopier:
 
 
 if __name__ == "__main__":
-    update_path = Path("update.bat").resolve()
-    if update_path.exists():
-        new_location = update_path.parent.parent / update_path.name
-        update_path.replace(new_location)
-
     setup_logging(console_logging=True, console_level=logging.DEBUG)
     logging.info("Logger started")
     user_settings = UserSettings()
