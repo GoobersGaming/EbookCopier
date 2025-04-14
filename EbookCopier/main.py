@@ -11,17 +11,18 @@ from ebook_capture import capture_ebook
 from settings.config import UserSettings
 
 # TODO: Do I want to overwrite the file if it exists, when user choses a file path?
-# remove pathlib? not really needed, seems under utilize, use os.
+# convert os.path to pathlib
 # standarize my naming covention and commenting to be uniform
-# am i over logging?
-# Make my messagebox nicer. espically for displaying file location.
-# Add more browser support?
+# clean up logging, ensure no double logging of same info, overlogging?
+# adjust windows styles more, perhaps a lighter color for text background,
+# Add more browser support
 # True no focus stealing "interactive" windows.
-# add a settings window to visually adjust config.toml
-# Move update.bat to python script.
-# if update -> new file handles download/movement and main restart -> run update file, closes main, updates -> restart main, delete update file
+# add a settings UI
+# add a add new site UI
+# auto create a startup shortcut, that can also change its python path if needed
 # Add more user configuration over log size, image types, compression, etc.
 # Remove PyMuPDF
+# Add licenseing, readme attributes.
 
 
 class BookCopier:
@@ -230,9 +231,12 @@ class BookCopier:
 
 
 if __name__ == "__main__":
+    # Create a default logger, that we will update later to user pref to catch early issues.
     setup_logging(console_logging=True, console_level=logging.DEBUG)
     logging.info("Logger started")
+
     user_settings = UserSettings()
+
     app = BookCopierUI(user_settings)
     book_copier = BookCopier(app.window, user_settings)
     app.set_start_command(book_copier.start)

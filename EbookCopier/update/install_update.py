@@ -6,71 +6,109 @@ import stat
 import argparse
 import subprocess
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def validate_zip_path(path_str):
     if not Path(path_str).exists:
-        input("zip File doesnt exist")
+        logger.debug(f"zip path does not exist: {path_str}")
         raise argparse.ArgumentTypeError(f"Path does not exist: {path_str}")
 
     if Path(path_str).suffix != ".zip":
-        input("Not a zip")
+        logger.debug(f"File type is not a zip file: {path_str}")
         raise argparse.ArgumentTypeError(f"Not a zip file: {path_str}")
     return Path(path_str)
 
 
 def validate_restart_path(path_str):
     if not Path(path_str).exists:
-        input("bat file doesnt exist")
+        logger.debug(f"bat path does not exist: {path_str}")
         raise argparse.ArgumentTypeError(f"Path does not exist: {path_str}")
     if Path(path_str).suffix != ".bat":
-        input("Not a bat file")
+        logger.debug(f"File type is not a bat file: {path_str}")
         raise argparse.ArgumentTypeError(f"Not a bat file: {path_str}")
     return Path(path_str)
 
 
+def start_logger():
+    log_dir = Path.cwd() / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "update.log"
+
+    # Create logger for this script
+    logger = logging.getLogger("update_script")
+    logger.setLevel(logging.DEBUG)
+
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # File handler and logging level for file
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.DEBUG)
+
+    # Console handler
+    con = logging.StreamHandler()
+    con.setLevel(logging.INFO)
+
+    # Formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    fh.setFormatter(formatter)
+    con.setFormatter(formatter)
+
+    # add handlers to logger
+    logger.addHandler(fh)
+    logger.addHandler(con)
+
+    logger.info(f"Logger initialized. Log File: {log_file}")
+    return logger
+
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Unzip EbookCopier Zip and merge with existing directory"
-    )
-    parser.add_argument(
-        "-p", "--zip_path",
-        type=validate_zip_path,
-        required=True,
-        help="Path to the zip file to extract and install"
-    )
-    parser.add_argument(
-        "-r", "--restart_path",
-        required=True,
-        help="Path to restart bat, to restart main program"
-    )
-    parser.add_argument(
-        "--delete",
-        action="store_true",
-        help="Delete the zip file after successful extraction"
-    )
+    try:
+        parser = argparse.ArgumentParser(
+            description="Unzip EbookCopier Zip and merge with existing directory"
+        )
+        parser.add_argument(
+            "-p", "--zip_path",
+            type=validate_zip_path,
+            required=True,
+            help="Path to the zip file to extract and install"
+        )
+        parser.add_argument(
+            "-r", "--restart_path",
+            required=True,
+            help="Path to restart bat, to restart main program"
+        )
+        parser.add_argument(
+            "--delete",
+            action="store_true",
+            help="Delete the zip file after successful extraction"
+        )
+        # Parse args, and set type
+        args = parser.parse_args()
+        args.zip_path = Path(args.zip_path)
+        args.restart_path = Path(args.restart_path)
+        logger.debug(f"zip path: {args.zip_path}, restart path: {args.restart_path}, delete zip: {args.delete}")
+        # unzip and move the zip file
+        if not unzip_and_merge(args.zip_path, delete_after=args.delete):
+            logger.error("Failed to unzip and install update")
+            return False
 
-    args = parser.parse_args()
-    args.zip_path = Path(args.zip_path)
-    args.restart_path = Path(args.restart_path)
-    # print("zip path: ", args.zip_path)
-    # print("delete: ", args.delete)
-    # print("Dir, Name")
-    # print(args.restart_path.parent)
-    # print(args.restart_path.name)
-
-    # unzip and move the zip file
-    input("Starting Merge")
-    if not unzip_and_merge(args.zip_path, delete_after=args.delete):
-        print("Installation Failed!")
-        return False
-
-    if restart_main(args.restart_path):
-        time.sleep(1)
-        sys.exit(0)
-    else:
-        time.sleep(1)
-        sys.exit(1)
+        if restart_main(args.restart_path):
+            logger.info("Restarting main application")
+            time.sleep(1)
+            sys.exit(0)
+        else:
+            logger.info("Failed to restart main application")
+            time.sleep(1)
+            sys.exit(1)
+    except Exception as e:
+        logger.error(f"Update Failed, see log file for more informatiom {str(e)}")
 
 
 def restart_main(bat_path):
@@ -79,7 +117,7 @@ def restart_main(bat_path):
         bat_file = bat_path.name
 
         if not bat_path.exists:
-            print(f"Error: Batch file not found at {bat_path}")
+            logger.error(f"Batch file not found at {bat_path}")
             return False
 
         # change to the root directory first, important for relative paths
@@ -90,12 +128,11 @@ def restart_main(bat_path):
             creationflags=subprocess.CREATE_NEW_CONSOLE,
             cwd=cwd_path
         )
-
-        print("Main application restarted successfully")
+        logger.info("Main application restarted successfully")
         return True
 
     except Exception as e:
-        print(f"Error restarting application: {str(e)}")
+        logger.error(f"Error restarting application {str(e)}")
         return False
 
 
@@ -112,15 +149,15 @@ def delete_zip_file(zip_path: Path, max_retries=3, delay=1) -> bool:
             if zip_path.exists():
                 zip_path.chmod(stat.S_IWRITE)  # Ensure write permissions
                 zip_path.unlink()  # Path's version of os.remove
-                print(f"Successfully deleted zip file: {zip_path}")
+                logger.debug(f"Successfully delete zip file: {zip_path}")
                 return True
         except PermissionError as e:
             if attempt == max_retries - 1:
-                print(f"Failed to delete zip file after {max_retries} attempts: {e}")
+                logger.error(f"Failed to delete zip file after {max_retries} attempts: {e}")
                 return False
             time.sleep(delay)
         except Exception as e:
-            print(f"Unexpected error deleting zip file: {e}")
+            logger.error(f"Unexpected error deleting zip file: {e}")
             return False
     return False
 
@@ -149,7 +186,7 @@ def unzip_and_merge(zip_path: Path, delete_after=True) -> bool:
         source_folder = temp_extract / 'EbookCopier-main'
 
         if not source_folder.exists():
-            print("Error: 'EbookCopier-main' folder not found in the zip file")
+            logger.error("EbookCopier-main folder not found in the zip file")
             shutil.rmtree(temp_extract, onexc=handle_remove_error)
             return False
 
@@ -187,10 +224,9 @@ def unzip_and_merge(zip_path: Path, delete_after=True) -> bool:
                     move_with_retry(src, dst)
 
             except Exception as e:
-                print(f"Warning: Could not move {item.name}: {str(e)}")
+                logger.warning(f"Warning could not move {item.name}: {str(e)}")
                 continue
-
-        print("Successfully merged contents from EbookCopier-main")
+        logger.info("Successfully merged contents from EbookCopier-main")
 
         # Clean up temporary directory with onexc
         shutil.rmtree(temp_extract, onexc=handle_remove_error)
@@ -202,13 +238,14 @@ def unzip_and_merge(zip_path: Path, delete_after=True) -> bool:
         return True
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         if 'temp_extract' in locals() and temp_extract.exists():
             shutil.rmtree(temp_extract, onexc=handle_remove_error)
         return False
 
 
 if __name__ == "__main__":
-    print("Preparing install")
+    logger = start_logger()
+    logger.info("Preparing to install...")
     time.sleep(5)
     main()

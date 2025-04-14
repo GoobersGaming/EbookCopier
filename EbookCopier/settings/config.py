@@ -53,6 +53,7 @@ class UserSettings:
         self.info = True
         self.debug = True
         self.console_logging = False
+        self.auto_update = True
         self.console_level = "INFO"
         self.picture_format = "PNG"
         self.websites = ["Libby", "Hoopla"]
@@ -91,14 +92,15 @@ class UserSettings:
         config = self.__read_user_settings()
         self.info = self.__safe_get(config, "logging", "info", default=True)
         self.debug = self.__safe_get(config, "logging", "debug", default=True)
+        self.console_logging = self.__safe_get(config, "logging", "console_logging", default=False)
+        self.console_level = self.__safe_get(config, "logging", "console_level", default="INFO")
         self.picture_format = self.__safe_get(config, "settings", "picture_format", default="PNG")
         self.websites = self.__safe_get(config, "settings", "websites", default=["Libby", "Hoopla"])
         self.max_images = self.__safe_get(config, "settings", "max_images", default=50)
         self.max_memory_mb = self.__safe_get(config, "settings", "max_memory_mb", default=200)
         self.thresholds = self.__safe_get(config, "settings", "threshold", default={"Libby": 0.006, "Hoopla": 0.000})
         self.extra_delay = self.__safe_get(config, "settings", "extra_delay", default={"Libby": 1.0, "Hoopla": 20})
-        self.console_logging = self.__safe_get(config, "logging", "console_logging", default=False)
-        self.console_level = self.__safe_get(config, "logging", "console_level", default="INFO")
+        self.auto_update = self.__safe_get(config, "settings", "auto_update", default=True)
         for site in self.websites:
             site_config = self.__safe_get(config, site, default={})
             if not site_config:  # Skip if site doesnt exist in config
@@ -122,6 +124,7 @@ class UserSettings:
     def save_user_settings(self):
         config = {
             "settings": {
+                "auto_update": self.auto_update,
                 "picture_format": self.picture_format,
                 "websites": self.websites,
                 "max_images": self.max_images,

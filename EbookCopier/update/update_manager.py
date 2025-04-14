@@ -3,6 +3,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 
 class UpdateManger:
@@ -28,8 +30,9 @@ class UpdateManger:
     def check_for_update(self):
         self.source_version = self._check_source_version()
         self.local_version = self._check_local_version()
-        print(f"Source version: {self.source_version}")
-        print(f"Local version: {self.local_version}")
+        logger.debug(f"Source version: {self.source_version}")
+        logger.debug(f"Local version: {self.local_version}")
+
         if not self.local_version or not self.source_version:
             return False
 
@@ -45,7 +48,7 @@ class UpdateManger:
                     return None
                 return self._parse_version(line)
         except FileNotFoundError as e:
-            print("No local file found: ", str(e))
+            logger.warning("No local file found: ", str(e))
             return None
 
         return None
@@ -58,7 +61,7 @@ class UpdateManger:
             if version:
                 return self._parse_version(version)
         except requests.RequestException as e:
-            print("An error reaching the url: ", str(e))
+            logger.warning(f"Error reaching the url: {str(e)}")
 
     def _parse_version(self, line):
         version = []
@@ -74,7 +77,7 @@ class UpdateManger:
     def _compare_version(self):
         for local, source in zip(self.local_version, self.source_version):
             if local < source:
-                print("New version available")
+                logger.info("New version available")
                 return True
         return False
 
@@ -91,10 +94,10 @@ class UpdateManger:
             with open(self.zip_path, "wb") as f:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
-                print(f"File downloaded successfully to {self.zip_path}")
+                logger.debug(f"File downloaded succesfully do {self.zip_path}")
                 return True
         else:
-            print(f"Failed to download file. Statue code: {response.status_code}")
+            logger.warning(f"Failed to download file. status code: {response.status_code}")
             return False
 
     def start_install(self):
@@ -113,5 +116,6 @@ class UpdateManger:
             creationflags=subprocess.CREATE_NEW_CONSOLE,
             cwd=str(cwd_dir)
         )
+        logger.info("Updater started successfully")
         time.sleep(1)
         sys.exit(0)
