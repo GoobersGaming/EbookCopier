@@ -54,14 +54,14 @@ class UserSettings:
         self.debug = True
         self.console_logging = False
         self.auto_update = True
-        self.console_level = "INFO"
+        self.console_level = "DEBUG"
         self.picture_format = "PNG"
         self.websites = ["Libby", "Hoopla"]
         self.max_images = int(50)
         self.max_memory_mb = int(200)
         self.saved_capture_boxes = {}
-        self.thresholds = {"Libby": 0.006, "Hoopla": 0.000}
-        self.extra_delay = {"Libby": 1.0, "Hoopla": 20.0}
+        self.thresholds = {"Libby": 0.006, "Hoopla": 0.006}
+        self.last_save_dir = ""
         self.__populate_settings()
         self.save_user_settings()
 
@@ -77,13 +77,13 @@ class UserSettings:
         output_path = self.settings_path.resolve()
 
         if not output_path.exists():
-            logging.info("No config.toml")
+            logger.info("No config.toml")
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.touch()
 
             # Initialize with defualt content
             self.save_user_settings()
-            logging.info("config.toml created with default settings")
+            logger.info("config.toml created with default settings")
 
         with open(output_path, "rb") as f:
             return tomllib.load(f)
@@ -93,14 +93,14 @@ class UserSettings:
         self.info = self.__safe_get(config, "logging", "info", default=True)
         self.debug = self.__safe_get(config, "logging", "debug", default=True)
         self.console_logging = self.__safe_get(config, "logging", "console_logging", default=False)
-        self.console_level = self.__safe_get(config, "logging", "console_level", default="INFO")
+        self.console_level = self.__safe_get(config, "logging", "console_level", default="DEBUG")
         self.picture_format = self.__safe_get(config, "settings", "picture_format", default="PNG")
         self.websites = self.__safe_get(config, "settings", "websites", default=["Libby", "Hoopla"])
         self.max_images = self.__safe_get(config, "settings", "max_images", default=50)
         self.max_memory_mb = self.__safe_get(config, "settings", "max_memory_mb", default=200)
-        self.thresholds = self.__safe_get(config, "settings", "threshold", default={"Libby": 0.006, "Hoopla": 0.000})
-        self.extra_delay = self.__safe_get(config, "settings", "extra_delay", default={"Libby": 1.0, "Hoopla": 20})
+        self.thresholds = self.__safe_get(config, "settings", "threshold", default={"Libby": 0.006, "Hoopla": 0.006})
         self.auto_update = self.__safe_get(config, "settings", "auto_update", default=True)
+        self.last_save_dir = self.__safe_get(config, "settings", "last_save_dir", default="")
         for site in self.websites:
             site_config = self.__safe_get(config, site, default={})
             if not site_config:  # Skip if site doesnt exist in config
@@ -130,7 +130,7 @@ class UserSettings:
                 "max_images": self.max_images,
                 "max_memory_mb": self.max_memory_mb,
                 "threshold": self.thresholds,
-                "extra_delay": self.extra_delay},
+                "last_save_dir": self.last_save_dir},
             "logging": {
                 "info": self.info,
                 "debug": self.debug,
@@ -143,7 +143,7 @@ class UserSettings:
         with open(output_path, "wb") as f:
             f.write(b"# Main application settings\n")
             tomli_w.dump(config, f)
-            logging.info("Saving to config.toml")
+            logger.info("Saving to config.toml")
 
     def update_saved_capture_box(self, site, page, my_dict):
         # Update Bounding Box For Current Site Based On Monitor, And Page View.

@@ -5,11 +5,44 @@ import time
 import keyboard
 import logging
 import win32process
+import pyautogui
 logger = logging.getLogger(__name__)
 
 # TODO:
 # Add Logging
 # Check tghe different focus options
+
+
+def check_environment():
+    """Ensures Edge Is Active, and Fullscreen, and will move mouse out of the way"""
+    try:
+        response = None
+        if not is_edge_window_active_and_focused():
+            activate_edge_window()
+            response = True
+            logger.info("Activating Microsoft Edge")
+            time.sleep(.5)
+        if not is_edge_fullscreen():
+            enter_fullscreen_if_needed()
+            response = True
+            logger.info("Microsoft Edge Entering Full Screen")
+        # Multimonitor mouse check
+        cur_x, cur_y = pyautogui.position()
+        screen_width, screen_height = pyautogui.size()
+        # Target bottom middle of screen
+        target_x = screen_width // 2
+        target_y = screen_height
+        if not (abs(cur_x - target_x) < 5 and abs(cur_y - target_y) < 5):
+            pyautogui.moveTo(target_x, target_y)
+            logger.info("Moving mouse")
+            time.sleep(0.5)
+
+    except pyautogui.FailSafeException:
+        logger.warning("Fail-safe trioggered")
+    except Exception as e:
+        raise RuntimeError(f"Enviroment check failed: {str(e)}")
+    logger.info("Enviroment check complete.")
+    return response  # Return True if browser was manipulated
 
 
 def is_edge_window_active_and_focused():
@@ -123,7 +156,7 @@ def enter_fullscreen_if_needed():
     if is_edge_fullscreen():
         return True
 
-    logging.error(f"Failed to set fullscreen after {max_attempts} attempts.")
+    logger.error(f"Failed to set fullscreen after {max_attempts} attempts.")
     return False
 
 
